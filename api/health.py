@@ -1,6 +1,6 @@
 import sys, os, time
 sys.path.insert(0, os.path.dirname(__file__))
-from _shared import get_db, json_response, error_response, require_auth, log_audit
+from _shared import get_db, json_response, error_response, require_auth, log_audit, make_handler
 from core.encryption import encrypt_json, decrypt_json, model_passphrase
 from ml.logistic import (
     init_weights, gradient_step, cross_entropy_loss, accuracy,
@@ -24,7 +24,7 @@ def _run(test_id, name, group, fn):
 
 
 @require_auth
-def handler(request, user):
+def _handler_impl(request, user):
     if request.method == "OPTIONS":
         return json_response({})
 
@@ -174,3 +174,7 @@ def handler(request, user):
         "total":    len(results),
         "all_pass": passed == len(results),
     })
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)

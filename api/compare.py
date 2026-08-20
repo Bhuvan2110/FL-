@@ -1,10 +1,10 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from _shared import get_db, json_response, error_response, require_auth, is_admin
+from _shared import get_db, json_response, error_response, require_auth, is_admin, make_handler
 
 
 @require_auth
-def handler(request, user):
+def _handler_impl(request, user):
     if request.method == "OPTIONS":
         return json_response({})
 
@@ -83,3 +83,7 @@ def handler(request, user):
 
     except Exception as e:
         return error_response(str(e), 500)
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)

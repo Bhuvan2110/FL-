@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from _shared import get_db, json_response, error_response, FRONTEND_URL
+from _shared import get_db, json_response, error_response, FRONTEND_URL, make_handler
 
 GOOGLE_REDIRECT_URI = os.environ.get(
     "GOOGLE_REDIRECT_URI",
@@ -8,7 +8,7 @@ GOOGLE_REDIRECT_URI = os.environ.get(
 )
 
 
-def handler(request):
+def _handler_impl(request):
     if request.method == "OPTIONS":
         return json_response({})
     try:
@@ -23,3 +23,7 @@ def handler(request):
         return json_response({"url": resp.url})
     except Exception as e:
         return error_response(str(e), 500)
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)

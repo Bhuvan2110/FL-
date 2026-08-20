@@ -5,7 +5,7 @@ Frontend polls for progress via experiment status.
 """
 import json, sys, os, random, io, csv
 sys.path.insert(0, os.path.dirname(__file__))
-from _shared import get_db, json_response, error_response, require_auth, log_audit
+from _shared import get_db, json_response, error_response, require_auth, log_audit, make_handler
 from core.encryption import encrypt_json, model_passphrase
 from ml.logistic import (
     to_xy, min_max_normalize, stratified_split,
@@ -48,7 +48,7 @@ def _load_rows(db, dataset_id, user_id):
 
 
 @require_auth
-def handler(request, user):
+def _handler_impl(request, user):
     if request.method == "OPTIONS":
         return json_response({})
     if request.method != "POST":
@@ -217,3 +217,7 @@ def handler(request, user):
             except Exception:
                 pass
         return error_response(str(e), 500)
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)

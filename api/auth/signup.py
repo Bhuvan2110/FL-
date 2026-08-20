@@ -1,9 +1,9 @@
 import json, sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from _shared import get_db, json_response, error_response
+from _shared import get_db, json_response, error_response, make_handler
 
 
-def handler(request):
+def _handler_impl(request):
     if request.method == "OPTIONS":
         return json_response({})
     if request.method != "POST":
@@ -24,3 +24,7 @@ def handler(request):
         })
     except Exception as e:
         return error_response(str(e))
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)

@@ -1,6 +1,6 @@
 import sys, os, io, csv, json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from _shared import get_db, json_response, error_response, require_auth, log_audit
+from _shared import get_db, json_response, error_response, require_auth, log_audit, make_handler
 
 
 def _profile_columns(cols, rows):
@@ -18,7 +18,7 @@ def _profile_columns(cols, rows):
 
 
 @require_auth
-def handler(request, user):
+def _handler_impl(request, user):
     if request.method == "OPTIONS":
         return json_response({})
     if request.method != "POST":
@@ -72,3 +72,7 @@ def handler(request, user):
         })
     except Exception as e:
         return error_response(str(e), 500)
+
+
+# Vercel Python runtime entrypoint (class-based, required — see _shared.make_handler)
+handler = make_handler(_handler_impl)
