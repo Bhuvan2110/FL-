@@ -12,7 +12,7 @@ Algorithms:
 import math
 import random
 from typing import List, Dict, Callable, Optional, Tuple
-from app.ml.logistic import (
+from ml.logistic import (
     init_weights, clone_weights, gradient_step, average_weights,
     cross_entropy_loss, accuracy, predict_proba,
 )

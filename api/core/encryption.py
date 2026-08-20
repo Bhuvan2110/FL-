@@ -8,7 +8,7 @@ import base64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
-from app.core.config import get_settings
+from _shared import ENCRYPTION_SECRET
 
 
 def _derive_key(passphrase: str) -> bytes:
@@ -47,5 +47,5 @@ def decrypt_json(ciphertext_b64: str, iv_b64: str, passphrase: str) -> dict:
 
 def model_passphrase(user_id: str, experiment_id: str) -> str:
     """Consistent passphrase scoped to user + experiment (mirrors frontend PBKDF2 logic)."""
-    secret = get_settings().encryption_secret
+    secret = ENCRYPTION_SECRET
     return f"{secret}:{user_id}:{experiment_id}"

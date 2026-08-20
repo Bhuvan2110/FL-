@@ -3,7 +3,7 @@ Evaluation metrics implemented from scratch — no sklearn.
 """
 import math
 from typing import List, Dict, Tuple
-from app.ml.logistic import predict_proba, predict
+from ml.logistic import predict_proba, predict
 
 
 def confusion_matrix(weights: Dict, X: List[List[float]], y: List[int], threshold: float = 0.5):
