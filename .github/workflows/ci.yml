@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check all Python syntax
+        run: |
+          python3 -c "
+          import ast, os, sys
+          errors = []
+          for root, dirs, files in os.walk('api'):
+              dirs[:] = [d for d in dirs if d != '__pycache__']
+              for f in files:
+                  if f.endswith('.py'):
+                      path = os.path.join(root, f)
+                      try:
+                          ast.parse(open(path).read())
+                      except SyntaxError as e:
+                          errors.append(f'{path}: {e}')
+          if errors:
+              print('ERRORS:')
+              for e in errors: print(e)
+              sys.exit(1)
+          print('All Python files syntax OK')
+          "
+      - name: Install deps and validate ML + crypto
+        run: |
+          pip install cryptography supabase pydantic pydantic-settings email-validator -q
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'api')
+          from ml.logistic import (generate_synthetic_dataset, min_max_normalize,
+              stratified_split, to_xy, init_weights, gradient_step, accuracy)
+          from ml.algorithms import train_central, train_fedavg
+          from ml.metrics import confusion_matrix, roc_curve
+          from core.encryption import encrypt_json, decrypt_json, model_passphrase
+
+          ds   = generate_synthetic_dataset(500, 4, 42)
+          feat = [c for c in ds['cols'] if c != ds['label_col']]
+          norm, _ = min_max_normalize(ds['rows'], feat)
+          train, val, test = stratified_split(norm, ds['label_col'], seed=99)
+          X, y   = to_xy(train, feat, ds['label_col'])
+          vX, vY = to_xy(val,   feat, ds['label_col'])
+          tX, tY = to_xy(test,  feat, ds['label_col'])
+
+          r   = train_central(X, y, vX, vY, rounds=40, lr=0.6)
+          acc = accuracy(r['weights'], vX, vY)
+          assert acc > 0.60, f'Central acc {acc:.2f} < 0.60'
+
+          clients = [
+              {'X': to_xy([r2 for j,r2 in enumerate(train) if j%3==i], feat, ds['label_col'])[0],
+               'y': to_xy([r2 for j,r2 in enumerate(train) if j%3==i], feat, ds['label_col'])[1]}
+              for i in range(3)
+          ]
+          r2  = train_fedavg(clients, vX, vY, rounds=10, local_epochs=2, lr=0.4)
+          acc2 = accuracy(r2['weights'], vX, vY)
+          assert acc2 > 0.55, f'FedAvg acc {acc2:.2f} < 0.55'
+
+          ct, iv  = encrypt_json({'test': 42}, 'ci-key')
+          rec     = decrypt_json(ct, iv, 'ci-key')
+          assert rec['test'] == 42
+
+          cm    = confusion_matrix(r['weights'], tX, tY)
+          total = sum(cm.values())
+          assert total == len(tX)
+
+          roc = roc_curve(r['weights'], tX, tY)
+          assert roc['auc'] > 0.55
+
+          assert model_passphrase('u1', 'e1') != model_passphrase('u2', 'e1')
+
+          print(f'All checks PASS — Central {acc*100:.1f}%, FedAvg {acc2*100:.1f}%, AUC {roc[\"auc\"]:.3f}')
+          "
+
+  frontend:
+    name: React build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify dist
+        run: |
+          test -f dist/index.html && echo "index.html OK"
+          ls dist/assets/*.js  > /dev/null && echo "JS bundle OK"
+          ls dist/assets/*.css > /dev/null && echo "CSS bundle OK"
