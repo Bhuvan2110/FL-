@@ -5,8 +5,16 @@
 
 const BASE = ""   // same origin — Vercel serves /api/* from Python functions
 
+// Retry configuration for transient failures
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 1000
+
 function getToken() {
   return localStorage.getItem("fedshield_token") || ""
+}
+
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function request(path, options = {}) {
@@ -16,13 +24,41 @@ async function request(path, options = {}) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   }
-  const res = await fetch(`${BASE}${path}`, { ...options, headers })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || err.detail || `HTTP ${res.status}`)
+
+  let lastError
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${BASE}${path}`, { ...options, headers })
+      
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }))
+        const errorMsg = err.error || err.detail || `HTTP ${res.status}`
+        
+        // Retry on 5xx errors or network issues
+        if (res.status >= 500 && attempt < MAX_RETRIES) {
+          console.warn(`API request failed (attempt ${attempt}/${MAX_RETRIES}): ${errorMsg}`)
+          await delay(RETRY_DELAY_MS * attempt)
+          continue
+        }
+        
+        throw new Error(errorMsg)
+      }
+      
+      if (res.status === 204) return null
+      return res.json()
+    } catch (error) {
+      lastError = error
+      // Retry on network errors
+      if (attempt < MAX_RETRIES && error.message.includes('fetch')) {
+        console.warn(`Network error (attempt ${attempt}/${MAX_RETRIES}): ${error.message}`)
+        await delay(RETRY_DELAY_MS * attempt)
+        continue
+      }
+      throw error
+    }
   }
-  if (res.status === 204) return null
-  return res.json()
+  
+  throw lastError || new Error('Request failed after retries')
 }
 
 export const api = {
