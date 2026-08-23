@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const { signIn, signUp, signInWithGoogle, continueAsGuest } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode]     = useState('signin')
   const [email, setEmail]   = useState('')
@@ -36,6 +36,11 @@ export default function Login() {
     setGoogleBusy(true)
     try { await signInWithGoogle() }
     catch (err) { setError(err.message); setGoogleBusy(false) }
+  }
+
+  const handleSkip = () => {
+    continueAsGuest()
+    navigate('/')
   }
 
   return (
@@ -105,6 +110,19 @@ export default function Login() {
               : <> Already have one?{' '}<button onClick={() => setMode('signin')} className="text-signal-400 hover:text-signal-300">Sign in</button> </>
             }
           </div>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-ink-700" />
+            <span className="text-xs text-mist-700">or</span>
+            <div className="flex-1 h-px bg-ink-700" />
+          </div>
+
+          <button
+            onClick={handleSkip}
+            className="w-full text-center text-sm text-mist-500 hover:text-mist-200 border border-ink-700 hover:border-ink-600 rounded-xl px-4 py-2.5 transition"
+          >
+            Skip — browse as guest
+          </button>
         </div>
 
         <p className="text-center text-xs text-mist-700 mt-6 font-mono">
