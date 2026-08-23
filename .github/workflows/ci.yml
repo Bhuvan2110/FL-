@@ -6,97 +6,126 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   python:
-    name: Python syntax check
+    name: Python tests and validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-      - name: Check all Python syntax
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check Python syntax
         run: |
-          python3 -c "
-          import ast, os, sys
-          errors = []
-          for root, dirs, files in os.walk('api'):
-              dirs[:] = [d for d in dirs if d != '__pycache__']
-              for f in files:
-                  if f.endswith('.py'):
-                      path = os.path.join(root, f)
-                      try:
-                          ast.parse(open(path).read())
-                      except SyntaxError as e:
-                          errors.append(f'{path}: {e}')
-          if errors:
-              print('ERRORS:')
-              for e in errors: print(e)
-              sys.exit(1)
-          print('All Python files syntax OK')
-          "
-      - name: Install deps and validate ML + crypto
-        run: |
-          pip install cryptography supabase pydantic pydantic-settings email-validator -q
-          python3 -c "
+          python - <<'PY'
+          import ast
+          import pathlib
           import sys
-          sys.path.insert(0, 'api')
-          from ml.logistic import (generate_synthetic_dataset, min_max_normalize,
-              stratified_split, to_xy, init_weights, gradient_step, accuracy)
+
+          errors = []
+          for path in pathlib.Path("api").rglob("*.py"):
+              try:
+                  ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              except SyntaxError as exc:
+                  errors.append(f"{path}: {exc}")
+
+          if errors:
+              print("Python syntax errors:")
+              print("\n".join(errors))
+              sys.exit(1)
+          print("All Python files syntax OK")
+          PY
+
+      - name: Validate ML, metrics and encryption
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "api")
+
+          from ml.logistic import (
+              generate_synthetic_dataset,
+              min_max_normalize,
+              stratified_split,
+              to_xy,
+              accuracy,
+          )
           from ml.algorithms import train_central, train_fedavg
           from ml.metrics import confusion_matrix, roc_curve
           from core.encryption import encrypt_json, decrypt_json, model_passphrase
 
-          ds   = generate_synthetic_dataset(500, 4, 42)
-          feat = [c for c in ds['cols'] if c != ds['label_col']]
-          norm, _ = min_max_normalize(ds['rows'], feat)
-          train, val, test = stratified_split(norm, ds['label_col'], seed=99)
-          X, y   = to_xy(train, feat, ds['label_col'])
-          vX, vY = to_xy(val,   feat, ds['label_col'])
-          tX, tY = to_xy(test,  feat, ds['label_col'])
+          ds = generate_synthetic_dataset(500, 4, 42)
+          features = [c for c in ds["cols"] if c != ds["label_col"]]
+          normalized, _ = min_max_normalize(ds["rows"], features)
+          train, val, test = stratified_split(normalized, ds["label_col"], seed=99)
 
-          r   = train_central(X, y, vX, vY, rounds=40, lr=0.6)
-          acc = accuracy(r['weights'], vX, vY)
-          assert acc > 0.60, f'Central acc {acc:.2f} < 0.60'
+          X, y = to_xy(train, features, ds["label_col"])
+          val_X, val_y = to_xy(val, features, ds["label_col"])
+          test_X, test_y = to_xy(test, features, ds["label_col"])
 
-          clients = [
-              {'X': to_xy([r2 for j,r2 in enumerate(train) if j%3==i], feat, ds['label_col'])[0],
-               'y': to_xy([r2 for j,r2 in enumerate(train) if j%3==i], feat, ds['label_col'])[1]}
-              for i in range(3)
-          ]
-          r2  = train_fedavg(clients, vX, vY, rounds=10, local_epochs=2, lr=0.4)
-          acc2 = accuracy(r2['weights'], vX, vY)
-          assert acc2 > 0.55, f'FedAvg acc {acc2:.2f} < 0.55'
+          central = train_central(X, y, val_X, val_y, rounds=40, lr=0.6)
+          central_acc = accuracy(central["weights"], val_X, val_y)
+          assert central_acc > 0.60, f"Central accuracy {central_acc:.2f} < 0.60"
 
-          ct, iv  = encrypt_json({'test': 42}, 'ci-key')
-          rec     = decrypt_json(ct, iv, 'ci-key')
-          assert rec['test'] == 42
+          clients = []
+          for i in range(3):
+              rows = [row for j, row in enumerate(train) if j % 3 == i]
+              cX, cy = to_xy(rows, features, ds["label_col"])
+              clients.append({"X": cX, "y": cy})
 
-          cm    = confusion_matrix(r['weights'], tX, tY)
-          total = sum(cm.values())
-          assert total == len(tX)
+          fedavg = train_fedavg(clients, val_X, val_y, rounds=10, local_epochs=2, lr=0.4)
+          fedavg_acc = accuracy(fedavg["weights"], val_X, val_y)
+          assert fedavg_acc > 0.55, f"FedAvg accuracy {fedavg_acc:.2f} < 0.55"
 
-          roc = roc_curve(r['weights'], tX, tY)
-          assert roc['auc'] > 0.55
+          ciphertext, iv = encrypt_json({"test": 42}, "ci-key")
+          assert decrypt_json(ciphertext, iv, "ci-key")["test"] == 42
 
-          assert model_passphrase('u1', 'e1') != model_passphrase('u2', 'e1')
+          cm = confusion_matrix(central["weights"], test_X, test_y)
+          assert sum(cm.values()) == len(test_X)
 
-          print(f'All checks PASS — Central {acc*100:.1f}%, FedAvg {acc2*100:.1f}%, AUC {roc[\"auc\"]:.3f}')
-          "
+          roc = roc_curve(central["weights"], test_X, test_y)
+          assert roc["auc"] > 0.55, f"AUC {roc['auc']:.3f} <= 0.55"
+
+          assert model_passphrase("u1", "e1") != model_passphrase("u2", "e1")
+          print(
+              f"Validation PASS — Central {central_acc*100:.1f}%, "
+              f"FedAvg {fedavg_acc*100:.1f}%, AUC {roc['auc']:.3f}"
+          )
+          PY
 
   frontend:
     name: React build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Verify dist
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify build output
         run: |
-          test -f dist/index.html && echo "index.html OK"
-          ls dist/assets/*.js  > /dev/null && echo "JS bundle OK"
-          ls dist/assets/*.css > /dev/null && echo "CSS bundle OK"
+          test -f dist/index.html
+          find dist/assets -maxdepth 1 -type f -name '*.js' -print -quit | grep -q .
+          find dist/assets -maxdepth 1 -type f -name '*.css' -print -quit | grep -q .
+          echo "Frontend build output OK"
