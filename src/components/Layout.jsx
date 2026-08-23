@@ -36,11 +36,13 @@ function NavItem({ to, label, icon, end }) {
 }
 
 export default function Layout({ children }) {
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, isAdmin, isGuest, signOut } = useAuth()
   const navigate = useNavigate()
 
   const roleLabel = profile?.role === 'super_admin' ? 'Super Admin'
-    : profile?.role === 'admin' ? 'Admin' : 'Researcher'
+    : profile?.role === 'admin' ? 'Admin'
+    : profile?.role === 'guest' ? 'Guest'
+    : 'Researcher'
 
   return (
     <div className="min-h-screen flex">
@@ -82,7 +84,7 @@ export default function Layout({ children }) {
           <button
             onClick={async () => { await signOut(); navigate('/login') }}
             className="w-full text-left px-3 py-2 rounded-xl text-sm text-mist-500 hover:text-mist-100 hover:bg-ink-800/60 transition"
-          >Sign out</button>
+          >{isGuest ? 'Exit guest mode' : 'Sign out'}</button>
         </div>
       </aside>
 
