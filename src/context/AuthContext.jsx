@@ -2,11 +2,13 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { api, saveToken, clearToken, hasToken } from '../lib/api'
 
 const AuthCtx = createContext(null)
+const GUEST_KEY = 'fedshield_guest'
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
     // Handle Google OAuth callback — token arrives in URL hash
@@ -18,12 +20,26 @@ export function AuthProvider({ children }) {
       window.history.replaceState(null, '', window.location.pathname)
     }
 
+    if (localStorage.getItem(GUEST_KEY) === 'true') {
+      setIsGuest(true)
+      setSession({ user: { id: 'guest', email: 'guest@local' } })
+      setProfile({ email: 'Guest', role: 'guest' })
+      return
+    }
+
     if (!hasToken()) { setSession(null); return }
 
     api.auth.me()
       .then(data => { setSession({ user: data.user }); setProfile(data.profile) })
       .catch(() => { clearToken(); setSession(null) })
   }, [])
+
+  const continueAsGuest = () => {
+    localStorage.setItem(GUEST_KEY, 'true')
+    setIsGuest(true)
+    setSession({ user: { id: 'guest', email: 'guest@local' } })
+    setProfile({ email: 'Guest', role: 'guest' })
+  }
 
   const signUp = async (email, password) => {
     return api.auth.signUp(email, password)
@@ -42,8 +58,12 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
-    try { await api.auth.signOut() } catch {}
+    if (!isGuest) {
+      try { await api.auth.signOut() } catch {}
+    }
+    localStorage.removeItem(GUEST_KEY)
     clearToken()
+    setIsGuest(false)
     setSession(null)
     setProfile(null)
   }
@@ -59,8 +79,9 @@ export function AuthProvider({ children }) {
       user: session?.user ?? null,
       profile,
       loading,
+      isGuest,
       isAdmin: profile?.role === 'admin' || profile?.role === 'super_admin',
-      signUp, signIn, signOut, signInWithGoogle,
+      signUp, signIn, signOut, signInWithGoogle, continueAsGuest,
     }}>
       {children}
     </AuthCtx.Provider>
