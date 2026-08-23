@@ -39,6 +39,14 @@ export function ErrorBox({ message }) {
   return <div className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">{message}</div>
 }
 
+export function GuestNotice({ feature = 'this' }) {
+  return (
+    <div className="text-sm text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+      You're browsing as a guest — sign in to use {feature}.
+    </div>
+  )
+}
+
 export function AlgoBadge({ algo }) {
   const COLORS = {
     central:  '#7C879A', fedavg: '#6C7CFF', fedprox: '#4FE3C1',
