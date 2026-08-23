@@ -17,12 +17,24 @@ async function request(path, options = {}) {
     ...options.headers,
   }
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
+    const err = await res.json().catch(() => ({ error: res.statusText || `HTTP ${res.status}` }))
     throw new Error(err.error || err.detail || `HTTP ${res.status}`)
   }
   if (res.status === 204) return null
-  return res.json()
+
+  // A 200 response that isn't actually JSON means the API route didn't
+  // resolve to a serverless function (e.g. it fell through to the SPA's
+  // index.html). Surface a clear, actionable message instead of letting
+  // the raw browser SyntaxError ("Unexpected token '<'...") leak to the UI.
+  const contentType = res.headers.get("content-type") || ""
+  if (!contentType.includes("application/json")) {
+    throw new Error(`API route "${path}" is unavailable — the deployment may still be building, or the route requires sign-in.`)
+  }
+  return res.json().catch(() => {
+    throw new Error(`API route "${path}" returned an invalid response.`)
+  })
 }
 
 export const api = {
