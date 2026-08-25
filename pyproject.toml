@@ -1,0 +1,19 @@
+[tool.pyright]
+extraPaths = [
+    ".",
+    "api",
+    "api/datasets",
+    "api/auth",
+    "api/ml",
+    "api/core"
+]
+
+[tool.pylance]
+extraPaths = [
+    ".",
+    "api",
+    "api/datasets",
+    "api/auth",
+    "api/ml",
+    "api/core"
+]

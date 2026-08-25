@@ -1,0 +1,18 @@
+{
+  "python.analysis.extraPaths": [
+    ".",
+    "./api",
+    "./api/datasets",
+    "./api/auth",
+    "./api/ml",
+    "./api/core"
+  ],
+  "python.autoComplete.extraPaths": [
+    ".",
+    "./api",
+    "./api/datasets",
+    "./api/auth",
+    "./api/ml",
+    "./api/core"
+  ]
+}
