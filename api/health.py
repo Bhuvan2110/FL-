@@ -2,7 +2,7 @@ import sys, os, time
 from typing import Dict, Any
 sys.path.insert(0, os.path.dirname(__file__))
 try:
-    from _shared import get_db, get_service_db, json_response, error_response, bearer_token, require_auth, log_audit, make_handler
+    from _shared import get_db, get_service_db, json_response, error_response, bearer_token, require_auth, log_audit, make_handler, get_user
     from core.encryption import encrypt_json, decrypt_json, model_passphrase
     from ml.logistic import (
         init_weights, gradient_step, cross_entropy_loss, accuracy,
@@ -11,7 +11,7 @@ try:
     from ml.algorithms import train_central, train_fedavg
     from ml.metrics import confusion_matrix, roc_curve
 except ImportError:
-    from api._shared import get_db, get_service_db, json_response, error_response, bearer_token, require_auth, log_audit, make_handler
+    from api._shared import get_db, get_service_db, json_response, error_response, bearer_token, require_auth, log_audit, make_handler, get_user
     from api.core.encryption import encrypt_json, decrypt_json, model_passphrase
     from api.ml.logistic import (
         init_weights, gradient_step, cross_entropy_loss, accuracy,
@@ -19,6 +19,7 @@ except ImportError:
     )
     from api.ml.algorithms import train_central, train_fedavg
     from api.ml.metrics import confusion_matrix, roc_curve
+
 
 
 def _run(test_id, name, group, fn):
