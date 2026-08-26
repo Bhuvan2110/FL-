@@ -172,7 +172,8 @@ export default function AgentWidget() {
         </button>
       ) : (
         /* Expanded Modal Chat Window */
-        <div className="w-[440px] h-[600px] rounded-2xl border border-amber-500/40 bg-ink-950/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="w-[calc(100vw-2rem)] sm:w-[440px] h-[80vh] sm:h-[600px] max-h-[90vh] rounded-2xl border border-amber-500/40 bg-ink-950/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden">
+
           {/* Header with Tiger Avatar */}
           <div className="px-4 py-3 border-b border-line bg-ink-900/90 flex items-center justify-between">
             <div className="flex items-center gap-3">

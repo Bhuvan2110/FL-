@@ -26,26 +26,34 @@ export function Audit() {
         ) : logs.length === 0 ? (
           <div className="text-sm text-mist-500 text-center py-8">No events yet.</div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr><th>Action</th><th>Resource</th><th>Detail</th><th>User</th><th>Timestamp</th></tr>
-            </thead>
-            <tbody>
-              {logs.map(l => (
-                <tr key={l.id}>
-                  <td>
-                    <span className="badge border-signal-500/30 text-signal-400">{l.action}</span>
-                  </td>
-                  <td className="font-mono text-xs">{l.resource || '—'}</td>
-                  <td className="font-mono text-xs text-mist-500 max-w-[200px] truncate">
-                    {l.detail ? JSON.stringify(l.detail) : '—'}
-                  </td>
-                  <td className="font-mono text-xs text-mist-500">{l.user_id?.slice(0,10)}…</td>
-                  <td className="text-mist-500 text-xs">{new Date(l.created_at).toLocaleString()}</td>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="whitespace-nowrap">Action</th>
+                  <th className="whitespace-nowrap">Resource</th>
+                  <th className="whitespace-nowrap">Detail</th>
+                  <th className="whitespace-nowrap">User</th>
+                  <th className="whitespace-nowrap">Timestamp</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map(l => (
+                  <tr key={l.id}>
+                    <td className="whitespace-nowrap">
+                      <span className="badge border-signal-500/30 text-signal-400">{l.action}</span>
+                    </td>
+                    <td className="font-mono text-xs whitespace-nowrap">{l.resource || '—'}</td>
+                    <td className="font-mono text-xs text-mist-500 max-w-[200px] truncate">
+                      {l.detail ? JSON.stringify(l.detail) : '—'}
+                    </td>
+                    <td className="font-mono text-xs text-mist-500 whitespace-nowrap">{l.user_id?.slice(0,10)}…</td>
+                    <td className="text-mist-500 text-xs whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -82,7 +90,7 @@ export function Users() {
       {error && <div className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">{error}</div>}
 
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label:'Total users',       value: stats.total_users },
             { label:'Total datasets',    value: stats.total_datasets },
@@ -102,38 +110,48 @@ export function Users() {
         {loading ? (
           <div className="text-sm text-mist-500">Loading…</div>
         ) : (
-          <table className="data-table">
-            <thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Change role</th></tr></thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id}>
-                  <td className="font-mono text-xs">{u.email}</td>
-                  <td>
-                    <span className={`badge ${
-                      u.role==='super_admin' ? 'border-signal-500/40 text-signal-400' :
-                      u.role==='admin'       ? 'border-amber-400/30 text-amber-400' :
-                      'border-mist-700 text-mist-500'
-                    }`}>{u.role}</span>
-                  </td>
-                  <td className="text-mist-500 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <select
-                      disabled={updating===u.id || u.role==='super_admin'}
-                      value={u.role}
-                      onChange={e => changeRole(u.id, e.target.value)}
-                      className="input py-1 w-32 text-xs"
-                    >
-                      <option value="user">user</option>
-                      <option value="admin">admin</option>
-                      <option value="super_admin">super_admin</option>
-                    </select>
-                  </td>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="whitespace-nowrap">Email</th>
+                  <th className="whitespace-nowrap">Role</th>
+                  <th className="whitespace-nowrap">Joined</th>
+                  <th className="whitespace-nowrap">Change role</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id}>
+                    <td className="font-mono text-xs whitespace-nowrap">{u.email}</td>
+                    <td className="whitespace-nowrap">
+                      <span className={`badge ${
+                        u.role==='super_admin' ? 'border-signal-500/40 text-signal-400' :
+                        u.role==='admin'       ? 'border-amber-400/30 text-amber-400' :
+                        'border-mist-700 text-mist-500'
+                      }`}>{u.role}</span>
+                    </td>
+                    <td className="text-mist-500 text-xs whitespace-nowrap">{new Date(u.created_at).toLocaleDateString()}</td>
+                    <td className="whitespace-nowrap">
+                      <select
+                        disabled={updating === u.id}
+                        value={u.role}
+                        onChange={e => changeRole(u.id, e.target.value)}
+                        className="input text-xs py-1 px-2 font-mono border-ink-600 bg-ink-900"
+                      >
+                        <option value="researcher">researcher</option>
+                        <option value="admin">admin</option>
+                        <option value="super_admin">super_admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Papa from 'papaparse'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -205,7 +205,8 @@ export default function Datasets() {
       {isGuest && <GuestNotice feature="datasets" />}
 
       {/* 3 Upload Options Grid */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
         {/* Option 1: File Upload (CSV or ZIP) */}
         <div className="panel p-6 space-y-3">
           <div className="label">Upload CSV / ZIP Archive</div>
@@ -447,22 +448,25 @@ export default function Datasets() {
         ) : datasets.length === 0 ? (
           <div className="text-sm text-mist-500 text-center py-8">No datasets yet. Upload a CSV/ZIP file, fetch from URL, or generate synthetic data above.</div>
         ) : (
-          <table className="data-table">
-            <thead><tr><th>Filename</th><th>Rows</th><th>Label col</th><th>Type</th><th>Created</th><th></th></tr></thead>
-            <tbody>
-              {datasets.map(d => (
-                <tr key={d.id}>
-                  <td className="font-mono text-xs">{d.filename}</td>
-                  <td>{d.rows_count}</td>
-                  <td className="font-mono text-signal-400">{typeof d.label_col === 'string' ? d.label_col : (d.label_col?.name || 'target')}</td>
-                  <td><span className="badge border-mist-700 text-mist-500">{d.is_synthetic ? 'synthetic' : 'uploaded'}</span></td>
-                  <td className="text-mist-500 text-xs">{new Date(d.created_at).toLocaleDateString()}</td>
-                  <td><button onClick={() => handleDelete(d.id)} className="text-xs text-rose-400 hover:text-rose-300">delete</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="data-table">
+              <thead><tr><th>Filename</th><th>Rows</th><th>Label col</th><th>Type</th><th>Created</th><th></th></tr></thead>
+              <tbody>
+                {datasets.map(d => (
+                  <tr key={d.id}>
+                    <td className="font-mono text-xs whitespace-nowrap">{d.filename}</td>
+                    <td className="whitespace-nowrap">{d.rows_count}</td>
+                    <td className="font-mono text-signal-400 whitespace-nowrap">{typeof d.label_col === 'string' ? d.label_col : (d.label_col?.name || 'target')}</td>
+                    <td className="whitespace-nowrap"><span className="badge border-mist-700 text-mist-500">{d.is_synthetic ? 'synthetic' : 'uploaded'}</span></td>
+                    <td className="text-mist-500 text-xs whitespace-nowrap">{new Date(d.created_at).toLocaleDateString()}</td>
+                    <td className="whitespace-nowrap"><button onClick={() => handleDelete(d.id)} className="text-xs text-rose-400 hover:text-rose-300">delete</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
+
       </div>
     </div>
   )

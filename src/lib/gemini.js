@@ -1,5 +1,5 @@
-export const DEFAULT_GEMINI_KEY =
-  (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_KEY)) || "";
+export const DEFAULT_GEMINI_KEY = "";
+
 
 export const AVAILABLE_MODELS = [
   { id: "gemini-2.0-flash",      name: "Gemini 2.0 Flash (Fast & Intelligent)" },
@@ -70,7 +70,8 @@ export async function generateGeminiContent({ prompt, model = "gemini-2.0-flash"
     }
 
     if (response.status === 403 || errMsg.includes("denied access") || errMsg.includes("API_KEY_INVALID") || errMsg.includes("not valid")) {
-      throw new Error("🔑 Invalid or unauthorized Gemini API key. Please click the ⚙️ settings icon above to enter your Google AI Studio API key (starts with AIzaSy...).");
+      throw new Error("🔑 Invalid or unauthorized Gemini API key. Please click the ⚙️ settings icon above to enter your Google AI Studio API key.");
+
     }
 
     if (response.status === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {

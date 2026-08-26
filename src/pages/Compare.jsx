@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { api } from '../lib/api'
 import { PageHeader, ErrorBox, ALGO_META } from '../components/UI'
@@ -213,21 +213,23 @@ export default function Compare() {
           {/* Metrics Table with Delete Option */}
           <div className="panel p-6">
             <h2 className="text-base font-semibold mb-4">Full metrics table</h2>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Unique Model ID</th>
-                  <th>Algorithm</th>
-                  <th>Accuracy</th>
-                  <th>F1</th>
-                  <th>AUC</th>
-                  <th>Precision</th>
-                  <th>Recall</th>
-                  <th>Rounds</th>
-                  <th>Ran</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th className="whitespace-nowrap">Unique Model ID</th>
+                    <th className="whitespace-nowrap">Algorithm</th>
+                    <th className="whitespace-nowrap">Accuracy</th>
+                    <th className="whitespace-nowrap">F1</th>
+                    <th className="whitespace-nowrap">AUC</th>
+                    <th className="whitespace-nowrap">Precision</th>
+                    <th className="whitespace-nowrap">Recall</th>
+                    <th className="whitespace-nowrap">Rounds</th>
+                    <th className="whitespace-nowrap">Ran</th>
+                    <th className="whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+
               <tbody>
                 {experiments.map(e => {
                   const m = metrics.find(mm => mm.experiment_id === e.id)
@@ -266,7 +268,9 @@ export default function Compare() {
               </tbody>
             </table>
           </div>
+        </div>
         </>
+
       )}
     </div>
   )

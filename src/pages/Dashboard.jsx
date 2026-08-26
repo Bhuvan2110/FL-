@@ -46,7 +46,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Datasets"        value={loading ? '—' : stats?.datasets ?? 0}     sub="uploaded or synthetic"   accent="signal" />
         <StatCard label="Experiments"     value={loading ? '—' : stats?.experiments ?? 0}  sub="across 5 algorithms"     accent="signal" />
         <StatCard label="Best accuracy"   value={loading || !stats?.best_accuracy ? '—' : `${(stats.best_accuracy*100).toFixed(1)}%`} sub="highest recorded" accent="cipher" />
@@ -54,8 +54,8 @@ export default function Dashboard() {
       </div>
 
       {/* Recent experiments */}
-      <div className="panel p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="panel p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-semibold">Recent experiments</h2>
           <EncryptionBadge />
         </div>
@@ -65,38 +65,43 @@ export default function Dashboard() {
             <Link to="/train" className="text-signal-400 hover:text-signal-300">Run your first training job</Link>
           </div>
         ) : (
-          <table className="data-table">
-            <thead><tr><th>Algorithm</th><th>Status</th><th>Started</th><th></th></tr></thead>
-            <tbody>
-              {recent.map(e => (
-                <tr key={e.id}>
-                  <td className="font-medium" style={{ color: ALGO_META[e.algorithm]?.color }}>
-                    {ALGO_META[e.algorithm]?.label || e.algorithm}
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      e.status === 'completed' ? 'border-cipher-500/30 text-cipher-400' :
-                      e.status === 'running'   ? 'border-amber-400/30 text-amber-400' :
-                      e.status === 'failed'    ? 'border-rose-500/30 text-rose-400' :
-                      'border-mist-700 text-mist-500'
-                    }`}>{e.status}</span>
-                  </td>
-                  <td className="text-mist-500">{new Date(e.created_at).toLocaleString()}</td>
-                  <td><Link to="/compare" className="text-signal-400 hover:text-signal-300 text-xs">view →</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="data-table">
+              <thead><tr><th>Algorithm</th><th>Status</th><th>Started</th><th></th></tr></thead>
+              <tbody>
+                {recent.map(e => (
+                  <tr key={e.id}>
+                    <td className="font-medium whitespace-nowrap" style={{ color: ALGO_META[e.algorithm]?.color }}>
+                      {ALGO_META[e.algorithm]?.label || e.algorithm}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      <span className={`badge ${
+                        e.status === 'completed' ? 'border-cipher-500/30 text-cipher-400' :
+                        e.status === 'running'   ? 'border-amber-400/30 text-amber-400' :
+                        e.status === 'failed'    ? 'border-rose-500/30 text-rose-400' :
+                        'border-mist-700 text-mist-500'
+                      }`}>{e.status}</span>
+                    </td>
+                    <td className="text-mist-500 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
+                    <td className="whitespace-nowrap"><Link to="/compare" className="text-signal-400 hover:text-signal-300 text-xs">view →</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Python backend badge */}
-      <div className="panel p-4 flex items-center gap-4">
-        <div className="h-8 w-8 rounded-lg bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 text-sm font-bold font-mono">Py</div>
-        <div>
-          <div className="text-sm font-medium">Python FastAPI backend</div>
-          <div className="text-xs text-mist-500">All ML runs server-side · AES-256-GCM encryption · Google OAuth · Render deployment</div>
+      <div className="panel p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 shrink-0 rounded-lg bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 text-sm font-bold font-mono">Py</div>
+          <div>
+            <div className="text-sm font-medium">Python FastAPI backend</div>
+            <div className="text-xs text-mist-500">All ML runs server-side · AES-256-GCM encryption · Google OAuth · Render deployment</div>
+          </div>
         </div>
+
         <div className="ml-auto">
           <EncryptionBadge active label="Python cryptography lib" />
         </div>
