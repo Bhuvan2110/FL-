@@ -20,14 +20,12 @@ export function AuthProvider({ children }) {
       window.history.replaceState(null, '', window.location.pathname)
     }
 
-    if (localStorage.getItem(GUEST_KEY) === 'true') {
-      setIsGuest(true)
-      setSession({ user: { id: 'guest', email: 'guest@local' } })
-      setProfile({ email: 'Guest', role: 'guest' })
+    if (!hasToken()) {
+      localStorage.removeItem(GUEST_KEY)
+      setSession(null)
       return
     }
 
-    if (!hasToken()) { setSession(null); return }
 
     api.auth.me()
       .then(data => { setSession({ user: data.user }); setProfile(data.profile) })
