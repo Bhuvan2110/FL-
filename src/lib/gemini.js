@@ -20,7 +20,8 @@ Your persona and communication style:
 export async function generateGeminiContent({ prompt, model = "gemini-2.0-flash", apiKey = "" }) {
   const keyToUse = (apiKey && apiKey.trim()) ? apiKey.trim() : DEFAULT_GEMINI_KEY;
   if (!keyToUse) {
-    throw new Error("No Gemini API key provided. Click the ⚙️ settings icon in the top right of this chat window to enter your Google AI Studio API key (starts with AIzaSy...).");
+    throw new Error("No Gemini API key provided. Click the ⚙️ settings icon in the top right of this chat window to enter your Google AI Studio API key.");
+
   }
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToUse}`;
 
