@@ -34,16 +34,22 @@ def _run(test_id, name, group, fn):
                 "duration_ms": round((time.perf_counter() - t0) * 1000, 1)}
 
 
-@require_auth
-def _handler_impl(request, user):
+def _handler_impl(request):
     if request.method == "OPTIONS":
         return json_response({})
 
-    # Ping
-    if request.query.get("ping") == "true":
-        return json_response({"status": "ok", "service": "FedShield API"})
+    # Unauthenticated Ping / Health Check for Render & Monitoring
+    if request.query.get("ping") == "true" or request.query.get("healthz") == "true":
+        return json_response({"status": "ok", "service": "FedShield API", "timestamp": time.time()})
 
     token = getattr(request, "token", "") or bearer_token(request)
+    if not token:
+        return error_response("Not authenticated", 401)
+    user = get_user(token)
+    if not user:
+        return error_response("Invalid or expired token", 401)
+    request.token = token
+
     db = get_db(token)
 
     def test_db_connect():

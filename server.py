@@ -133,6 +133,15 @@ class RenderServerHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # Direct Health Check Routes for Render / Monitoring
+        if path in ("/healthz", "/health", "/api/healthz"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "service": "FedShield API"}).encode())
+            return
+
         if path.startswith("/api/"):
             self._dispatch_api()
             return
