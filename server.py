@@ -176,6 +176,17 @@ class RenderServerHandler(BaseHTTPRequestHandler):
         pass
 
 if __name__ == "__main__":
+    dist_dir = os.path.join(os.path.dirname(__file__), "dist")
+    index_path = os.path.join(dist_dir, "index.html")
+    if not os.path.exists(index_path):
+        print("dist/index.html not found. Running frontend build (npm install && npm run build)...")
+        try:
+            import subprocess
+            subprocess.run("npm install && npm run build", shell=True, check=True)
+            print("Frontend build succeeded!")
+        except Exception as err:
+            print(f"Warning: Frontend build error: {err}")
+
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), RenderServerHandler)
     print(f"FedShield Render server running on http://0.0.0.0:{port}")
@@ -183,3 +194,4 @@ if __name__ == "__main__":
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+
