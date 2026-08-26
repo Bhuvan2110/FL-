@@ -62,7 +62,7 @@ function FormattedMessage({ text }) {
 export default function AgentWidget() {
   const [open, setOpen]                       = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
-  const [model, setModel]                     = useState('gemini-3.6-flash')
+  const [model, setModel]                     = useState('gemini-2.0-flash')
   const [customApiKey, setCustomApiKey]       = useState(() => localStorage.getItem('fedshield_custom_api_key') || '')
   const [messages, setMessages]               = useState([
     {

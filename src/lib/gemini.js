@@ -2,11 +2,10 @@ export const DEFAULT_GEMINI_KEY =
   (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_KEY)) || "";
 
 export const AVAILABLE_MODELS = [
-  { id: "gemini-3.6-flash",        name: "Gemini 3.6 Flash (Fast & Intelligent)" },
-  { id: "gemini-3.5-flash",        name: "Gemini 3.5 Flash (Balanced)" },
-  { id: "gemini-3.1-pro-preview",  name: "Gemini 3.1 Pro (Deep Analytics)" },
-  { id: "gemini-pro-latest",       name: "Gemini Pro (Latest)" },
-  { id: "gemini-1.5-flash",        name: "Gemini 1.5 Flash (Legacy)" },
+  { id: "gemini-2.0-flash",      name: "Gemini 2.0 Flash (Fast & Intelligent)" },
+  { id: "gemini-1.5-flash",      name: "Gemini 1.5 Flash (Standard)" },
+  { id: "gemini-1.5-pro",        name: "Gemini 1.5 Pro (Deep Analytics)" },
+  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite (Lightweight)" },
 ];
 
 export const SYSTEM_INSTRUCTION = `You are FedShield AI, an intelligent, friendly, and highly capable AI assistant built into the FedShield Privacy-Preserving Federated Learning Platform.
@@ -18,10 +17,10 @@ Your persona and communication style:
 - Use clean Markdown formatting: bold key concepts (**like this**), use clear bullet lists (- or *), code snippets, and short readable paragraphs.
 - Always provide structured, insightful answers to user questions.`;
 
-export async function generateGeminiContent({ prompt, model = "gemini-3.6-flash", apiKey = "" }) {
+export async function generateGeminiContent({ prompt, model = "gemini-2.0-flash", apiKey = "" }) {
   const keyToUse = (apiKey && apiKey.trim()) ? apiKey.trim() : DEFAULT_GEMINI_KEY;
   if (!keyToUse) {
-    throw new Error("No Gemini API key found. Please enter your API key in the agent settings ⚙️ above or configure VITE_GEMINI_API_KEY in .env.");
+    throw new Error("No Gemini API key provided. Click the ⚙️ settings icon in the top right of this chat window to enter your Google AI Studio API key (starts with AIzaSy...).");
   }
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToUse}`;
 
@@ -44,8 +43,10 @@ export async function generateGeminiContent({ prompt, model = "gemini-3.6-flash"
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    // If system_instruction is rejected by an older model API endpoint, try fallback with instruction in prompt
-    if (response.status === 400 && errorData.error?.message?.includes("system_instruction")) {
+    const errMsg = errorData.error?.message || "";
+
+    // If system_instruction is rejected by model, try fallback with system instruction in prompt
+    if (response.status === 400 && errMsg.includes("system_instruction")) {
       const fallbackResponse = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +67,16 @@ export async function generateGeminiContent({ prompt, model = "gemini-3.6-flash"
       if (!text) throw new Error("No output generated from Google AI Studio model.");
       return text;
     }
-    throw new Error(errorData.error?.message || `Google AI Studio API Error (HTTP ${response.status})`);
+
+    if (response.status === 403 || errMsg.includes("denied access") || errMsg.includes("API_KEY_INVALID") || errMsg.includes("not valid")) {
+      throw new Error("🔑 Invalid or unauthorized Gemini API key. Please click the ⚙️ settings icon above to enter your Google AI Studio API key (starts with AIzaSy...).");
+    }
+
+    if (response.status === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("⏳ Gemini API rate limit / quota exceeded. Please retry in a few moments or enter your own API key in ⚙️ settings.");
+    }
+
+    throw new Error(errMsg || `Google AI Studio API Error (HTTP ${response.status})`);
   }
 
   const data = await response.json();
