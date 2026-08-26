@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: fedshield
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "npm install && npm run build && pip install -r requirements.txt"
+    startCommand: "python server.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ENCRYPTION_SECRET
+        sync: false
+      - key: VITE_GEMINI_API_KEY
+        sync: false

@@ -40,7 +40,7 @@ Implemented from mathematical first-principles in pure Python without third-part
 - **Frontend**: React 19, Vite, TailwindCSS, Recharts (Real-Time Curves & Evaluation Analytics).
 - **Backend API**: Python 3.12 (FastAPI / Serverless BaseHTTPRequestHandler).
 - **Database & Auth**: Supabase (PostgreSQL), Google OAuth 2.0, Bearer JWT Authentication.
-- **Deployment**: Vercel (Unified SPA Frontend + Python 3.12 Serverless API).
+- **Deployment**: Render Web Service (Unified React SPA Frontend + Python 3.12 Serverless API).
 
 ```
 FedShield Platform
@@ -49,15 +49,15 @@ FedShield Platform
  │    ├── /context              → AuthContext & Session Management
  │    ├── /lib                  → API Client & Gemini Integration
  │    └── /pages                → Dashboard, Datasets, Train, Compare, Predict, Admin, System Health
- ├── /api                       → Python Backend Serverless Endpoints
+ ├── /api                       → Python Backend Endpoints
  │    ├── /auth                 → Sign-in, Sign-up, Google OAuth Callback, Session endpoints
  │    ├── /core                 → AES-256-GCM Cryptography & Key Derivation
  │    ├── /datasets             → Dataset upload, indexing, and synthetic generation
  │    ├── /ml                   → Pure Python ML Algorithms (FedAvg, FedProx, SCAFFOLD, DP-SGD)
- │    ├── _shared.py            → Shared utilities, CORS headers, Vercel wrapper
- │    └── index.py              → Central Serverless API Router
+ │    └── _shared.py            → Shared utilities and CORS headers
+ ├── server.py                  → Unified Production Web & API Server for Render
  ├── local_api.py               → Local Python HTTP Server for Development
- └── vercel.json                → Deployment & Routing Configuration
+ └── render.yaml                → Render Blueprint Infrastructure Specification
 ```
 
 ---
@@ -118,12 +118,13 @@ Open [http://localhost:5173](http://localhost:5173) in your browser to access th
 
 ---
 
-## Deployment on Vercel
+## Deployment on Render
 
 1. Push your repository to GitHub.
-2. Import the project into Vercel (`vercel.com/new`).
-3. Add the required environment variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ENCRYPTION_SECRET`, `FRONTEND_URL`, `VITE_GEMINI_API_KEY`, etc.) in the Vercel Project Settings.
-4. Deploy — Vercel will automatically package the React SPA frontend and Python 3.12 serverless backend routes.
+2. Go to [render.com](https://render.com) → **New +** → **Blueprint** (or **Web Service**).
+3. Connect your `FL-` GitHub repository. Render automatically reads `render.yaml`.
+4. Configure your Environment Variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ENCRYPTION_SECRET`, `FRONTEND_URL`, `VITE_GEMINI_API_KEY`, etc.).
+5. Click **Deploy** — Render will run `npm install && npm run build` and launch `python server.py` serving both the React SPA frontend and Python backend API seamlessly on a single web service.
 
 ---
 
