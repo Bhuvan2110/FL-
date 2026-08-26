@@ -67,7 +67,7 @@ def get_write_db(token: Optional[str] = None):
     anon client when the service key is not configured."""
     db = get_service_db()
     if db is None:
-        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is missing from the backend environment.")
+        db = get_db(token)
     return db
 
 
@@ -155,11 +155,12 @@ class _SimpleRequest:
     """Adapts Vercel's raw BaseHTTPRequestHandler request into the plain
     .method / .headers / .query / .body interface every api/*.py handler
     in this codebase is written against."""
-    def __init__(self, method, headers, query, body):
+    def __init__(self, method, headers, query, body, path=""):
         self.method  = method
         self.headers = headers  # email.message.Message — .get() is case-insensitive
         self.query   = query    # plain dict
         self.body    = body     # raw bytes
+        self.path    = path     # raw path string
 
 
 def make_handler(fn):
@@ -181,7 +182,7 @@ def make_handler(fn):
             body = self.rfile.read(length) if length else b""
             parsed = urlparse(self.path)
             query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
-            request = _SimpleRequest(self.command, self.headers, query, body)
+            request = _SimpleRequest(self.command, self.headers, query, body, path=self.path)
 
             try:
                 result = fn(request)

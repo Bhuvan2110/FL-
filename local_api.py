@@ -46,11 +46,12 @@ ROUTES = {
 
 
 class _SimpleRequest:
-    def __init__(self, method, headers, query, body):
+    def __init__(self, method, headers, query, body, path=""):
         self.method  = method
         self.headers = headers
         self.query   = query
         self.body    = body
+        self.path    = path
 
 
 class LocalApiHandler(BaseHTTPRequestHandler):
@@ -71,7 +72,7 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             length = 0
         body  = self.rfile.read(length) if length else b""
         query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
-        req   = _SimpleRequest(self.command, self.headers, query, body)
+        req   = _SimpleRequest(self.command, self.headers, query, body, path=path)
 
         try:
             for s in list(sys.modules.keys()):
