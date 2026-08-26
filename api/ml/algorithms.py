@@ -35,12 +35,20 @@ def train_central(
     lr: float = 0.4,
     on_round: Optional[Callable] = None,
 ) -> Dict:
-    weights = init_weights(len(X[0]))
+    if not X or not X[0]:
+        return {"weights": init_weights(0), "history": []}
+
+    n_f = len(X[0])
+    weights = init_weights(n_f)
     history = []
+
+    eval_X = val_X if (val_X and val_X[0]) else X
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else y
+
     for r in range(1, rounds + 1):
         weights = gradient_step(weights, X, y, lr)
-        loss = cross_entropy_loss(weights, val_X, val_y)
-        acc  = accuracy(weights, val_X, val_y)
+        loss = cross_entropy_loss(weights, eval_X, eval_y)
+        acc  = accuracy(weights, eval_X, eval_y)
         entry = {"round": r, "loss": round(loss, 6), "accuracy": round(acc, 6)}
         history.append(entry)
         if on_round:
@@ -59,19 +67,31 @@ def train_fedavg(
     lr: float = 0.4,
     on_round: Optional[Callable] = None,
 ) -> Dict:
-    global_w = init_weights(len(clients[0]["X"][0]))
+    valid_clients = [c for c in clients if c.get("X") and c["X"][0] and len(c.get("y", [])) == len(c["X"])]
+    if not valid_clients:
+        return {"weights": init_weights(0), "history": []}
+
+    n_f = len(valid_clients[0]["X"][0])
+    global_w = init_weights(n_f)
     history = []
+
+    eval_X = val_X if (val_X and val_X[0]) else valid_clients[0]["X"]
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else valid_clients[0]["y"]
+
     for r in range(1, rounds + 1):
         updated, counts = [], []
-        for c in clients:
+        for c in valid_clients:
             local = clone_weights(global_w)
             for _ in range(local_epochs):
                 local = gradient_step(local, c["X"], c["y"], lr)
             updated.append(local)
             counts.append(len(c["X"]))
-        global_w = average_weights(updated, counts)
-        loss = cross_entropy_loss(global_w, val_X, val_y)
-        acc  = accuracy(global_w, val_X, val_y)
+
+        if sum(counts) > 0:
+            global_w = average_weights(updated, counts)
+
+        loss = cross_entropy_loss(global_w, eval_X, eval_y)
+        acc  = accuracy(global_w, eval_X, eval_y)
         entry = {"round": r, "loss": round(loss, 6), "accuracy": round(acc, 6)}
         history.append(entry)
         if on_round:
@@ -91,20 +111,32 @@ def train_fedprox(
     mu: float = 0.01,
     on_round: Optional[Callable] = None,
 ) -> Dict:
-    global_w = init_weights(len(clients[0]["X"][0]))
+    valid_clients = [c for c in clients if c.get("X") and c["X"][0] and len(c.get("y", [])) == len(c["X"])]
+    if not valid_clients:
+        return {"weights": init_weights(0), "history": []}
+
+    n_f = len(valid_clients[0]["X"][0])
+    global_w = init_weights(n_f)
     history = []
+
+    eval_X = val_X if (val_X and val_X[0]) else valid_clients[0]["X"]
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else valid_clients[0]["y"]
+
     for r in range(1, rounds + 1):
         updated, counts = [], []
-        for c in clients:
+        for c in valid_clients:
             local = clone_weights(global_w)
             for _ in range(local_epochs):
-                prox_grad = [mu * (local["w"][j] - global_w["w"][j]) for j in range(len(local["w"]))]
+                prox_grad = [mu * (local["w"][j] - global_w["w"][j]) for j in range(n_f)]
                 local = gradient_step(local, c["X"], c["y"], lr, extra_grad=prox_grad)
             updated.append(local)
             counts.append(len(c["X"]))
-        global_w = average_weights(updated, counts)
-        loss = cross_entropy_loss(global_w, val_X, val_y)
-        acc  = accuracy(global_w, val_X, val_y)
+
+        if sum(counts) > 0:
+            global_w = average_weights(updated, counts)
+
+        loss = cross_entropy_loss(global_w, eval_X, eval_y)
+        acc  = accuracy(global_w, eval_X, eval_y)
         entry = {"round": r, "loss": round(loss, 6), "accuracy": round(acc, 6)}
         history.append(entry)
         if on_round:
@@ -123,24 +155,33 @@ def train_scaffold(
     lr: float = 0.4,
     on_round: Optional[Callable] = None,
 ) -> Dict:
-    n_f = len(clients[0]["X"][0])
+    valid_clients = [c for c in clients if c.get("X") and c["X"][0] and len(c.get("y", [])) == len(c["X"])]
+    if not valid_clients:
+        return {"weights": init_weights(0), "history": []}
+
+    n_f = len(valid_clients[0]["X"][0])
     global_w = init_weights(n_f)
     c_global  = [0.0] * n_f
-    c_clients = [[0.0] * n_f for _ in clients]
+    c_clients = [[0.0] * n_f for _ in valid_clients]
     history = []
+
+    eval_X = val_X if (val_X and val_X[0]) else valid_clients[0]["X"]
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else valid_clients[0]["y"]
 
     for r in range(1, rounds + 1):
         updated, counts, delta_c = [], [], []
-        for i, c in enumerate(clients):
+        for i, c in enumerate(valid_clients):
             local = clone_weights(global_w)
             c_local = c_clients[i]
             for _ in range(local_epochs):
                 correction = [c_global[j] - c_local[j] for j in range(n_f)]
                 neg_corr   = [-v for v in correction]
                 local = gradient_step(local, c["X"], c["y"], lr, extra_grad=neg_corr)
+
             steps = local_epochs
+            step_factor = (steps * lr) if (steps * lr) != 0 else 1.0
             new_c_local = [
-                c_local[j] - c_global[j] + (global_w["w"][j] - local["w"][j]) / (steps * lr)
+                c_local[j] - c_global[j] + (global_w["w"][j] - local["w"][j]) / step_factor
                 for j in range(n_f)
             ]
             delta_c.append([new_c_local[j] - c_local[j] for j in range(n_f)])
@@ -148,12 +189,15 @@ def train_scaffold(
             updated.append(local)
             counts.append(len(c["X"]))
 
-        global_w = average_weights(updated, counts)
-        n_clients = len(clients)
-        c_global = [c_global[j] + sum(dc[j] for dc in delta_c) / n_clients for j in range(n_f)]
+        if sum(counts) > 0:
+            global_w = average_weights(updated, counts)
 
-        loss = cross_entropy_loss(global_w, val_X, val_y)
-        acc  = accuracy(global_w, val_X, val_y)
+        n_clients = len(valid_clients)
+        if n_clients > 0:
+            c_global = [c_global[j] + sum(dc[j] for dc in delta_c) / n_clients for j in range(n_f)]
+
+        loss = cross_entropy_loss(global_w, eval_X, eval_y)
+        acc  = accuracy(global_w, eval_X, eval_y)
         entry = {"round": r, "loss": round(loss, 6), "accuracy": round(acc, 6)}
         history.append(entry)
         if on_round:
@@ -188,11 +232,20 @@ def train_dpsgd(
     delta: float = 1e-5,
     on_round: Optional[Callable] = None,
 ) -> Dict:
+    if not X or not X[0]:
+        return {"weights": init_weights(0), "history": [], "privacy": []}
+
     n_f = len(X[0])
     weights = init_weights(n_f)
     n = len(X)
     history = []
     privacy_log = []
+
+    eval_X = val_X if (val_X and val_X[0]) else X
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else y
+
+    safe_delta = max(min(delta, 0.999), 1e-15)
+    noise_mult = max(noise_multiplier, 1e-6)
 
     for r in range(1, rounds + 1):
         grad_sum = [0.0] * n_f
@@ -200,33 +253,35 @@ def train_dpsgd(
 
         for xi, yi in zip(X, y):
             err = predict_proba(weights, xi) - yi
-            g = [err * xi[j] for j in range(n_f)]
-            norm = _l2_norm(g) or 1e-9
-            clip = min(1.0, clip_norm / norm)
-            for j in range(n_f):
-                grad_sum[j] += g[j] * clip
-            b_sum += err * min(1.0, clip_norm / (abs(err) or 1e-9))
+            g_w = [err * xi[j] for j in range(n_f)]
+            g_b = err
+            full_norm = math.sqrt(sum(v * v for v in g_w) + g_b * g_b) or 1e-9
+            clip = min(1.0, clip_norm / full_norm)
 
-        noise_std = noise_multiplier * clip_norm
+            for j in range(n_f):
+                grad_sum[j] += g_w[j] * clip
+            b_sum += g_b * clip
+
+        noise_std = noise_mult * clip_norm
         new_w = [
             weights["w"][j] - lr * ((grad_sum[j] + _gaussian_noise() * noise_std) / n)
             for j in range(n_f)
         ]
-        weights = {"w": new_w, "b": weights["b"] - lr * (b_sum / n)}
+        new_b = weights["b"] - lr * ((b_sum + _gaussian_noise() * noise_std) / n)
+        weights = {"w": new_w, "b": new_b}
 
-        loss = cross_entropy_loss(weights, val_X, val_y)
-        acc  = accuracy(weights, val_X, val_y)
+        loss = cross_entropy_loss(weights, eval_X, eval_y)
+        acc  = accuracy(weights, eval_X, eval_y)
 
         # Approximate Gaussian-mechanism composition bound
-        eps_round = math.sqrt(2 * math.log(1.25 / delta)) / noise_multiplier
-        eps_cumul = math.sqrt(2 * r * math.log(1 / delta)) / noise_multiplier
+        eps_cumul = math.sqrt(2 * r * math.log(1.25 / safe_delta)) / noise_mult
 
         entry = {
             "round": r, "loss": round(loss, 6), "accuracy": round(acc, 6),
-            "epsilon": round(eps_cumul, 6), "delta": delta,
+            "epsilon": round(eps_cumul, 6), "delta": safe_delta,
         }
         history.append(entry)
-        privacy_log.append({"round": r, "epsilon": round(eps_cumul, 6), "delta": delta})
+        privacy_log.append({"round": r, "epsilon": round(eps_cumul, 6), "delta": safe_delta})
         if on_round:
             on_round(entry)
 
