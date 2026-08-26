@@ -2,10 +2,11 @@ export const DEFAULT_GEMINI_KEY =
   (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_KEY)) || "";
 
 export const AVAILABLE_MODELS = [
-  { id: "gemini-1.5-flash",      name: "Gemini 1.5 Flash (Fast & Intelligent)" },
-  { id: "gemini-1.5-pro",        name: "Gemini 1.5 Pro (Deep Analytics)" },
-  { id: "gemini-2.0-flash",      name: "Gemini 2.0 Flash (Next Generation)" },
-  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite (Lightweight)" },
+  { id: "gemini-3.6-flash",        name: "Gemini 3.6 Flash (Fast & Intelligent)" },
+  { id: "gemini-3.5-flash",        name: "Gemini 3.5 Flash (Balanced)" },
+  { id: "gemini-3.1-pro-preview",  name: "Gemini 3.1 Pro (Deep Analytics)" },
+  { id: "gemini-pro-latest",       name: "Gemini Pro (Latest)" },
+  { id: "gemini-1.5-flash",        name: "Gemini 1.5 Flash (Legacy)" },
 ];
 
 export const SYSTEM_INSTRUCTION = `You are FedShield AI, an intelligent, friendly, and highly capable AI assistant built into the FedShield Privacy-Preserving Federated Learning Platform.
@@ -17,7 +18,7 @@ Your persona and communication style:
 - Use clean Markdown formatting: bold key concepts (**like this**), use clear bullet lists (- or *), code snippets, and short readable paragraphs.
 - Always provide structured, insightful answers to user questions.`;
 
-export async function generateGeminiContent({ prompt, model = "gemini-1.5-flash", apiKey = "" }) {
+export async function generateGeminiContent({ prompt, model = "gemini-3.6-flash", apiKey = "" }) {
   const keyToUse = (apiKey && apiKey.trim()) ? apiKey.trim() : DEFAULT_GEMINI_KEY;
   if (!keyToUse) {
     throw new Error("No Gemini API key found. Please enter your API key in the agent settings ⚙️ above or configure VITE_GEMINI_API_KEY in .env.");
