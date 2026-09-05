@@ -3,7 +3,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { api } from '../lib/api'
 import { PageHeader, EncryptionBadge, ErrorBox, ALGO_META } from '../components/UI'
 
-const DEFAULTS = { rounds: 20, lr: 0.4, local_epochs: 3, num_clients: 4, iid: true, mu: 0.05, clip_norm: 1.0, noise_multiplier: 1.2, delta: 1e-5 }
+const DEFAULTS = { rounds: 20, lr: 0.4, local_epochs: 3, num_clients: 4, iid: true, alpha: 0.5, mu: 0.05, clip_norm: 1.0, noise_multiplier: 1.2, delta: 1e-5 }
+
+const PRESETS = [
+  { name: 'Fast', rounds: 10, lr: 0.5, num_clients: 3, local_epochs: 2, algo: 'fedavg', desc: 'Quick prototype' },
+  { name: 'Balanced', rounds: 20, lr: 0.4, num_clients: 4, local_epochs: 3, algo: 'fedavg', desc: 'Standard FL research' },
+  { name: 'Thorough', rounds: 30, lr: 0.3, num_clients: 6, local_epochs: 4, algo: 'scaffold', desc: 'High precision' },
+  { name: 'Privacy-First', rounds: 20, lr: 0.4, clip_norm: 1.0, noise_multiplier: 1.5, algo: 'dpsgd', desc: 'Tight ε guarantees' },
+  { name: 'Byzantine-Robust', rounds: 20, lr: 0.4, num_clients: 5, local_epochs: 3, algo: 'krum', desc: 'Model poisoning defense' },
+]
 
 function NumField({ label, value, onChange, step=1, min, max }) {
   return (
@@ -19,7 +27,7 @@ function MetricBox({ label, value }) {
   return (
     <div>
       <div className="label mb-1">{label}</div>
-      <div className="font-display text-lg font-semibold">{(value * 100).toFixed(1)}%</div>
+      <div className="font-display text-lg font-semibold">{typeof value === 'number' ? (value * 100).toFixed(1) + '%' : value || '—'}</div>
     </div>
   )
 }
@@ -37,13 +45,44 @@ export default function Train() {
   const [log,         setLog]         = useState('')
   const [error,       setError]       = useState('')
 
+  // Load datasets & restore last training run from localStorage
   useEffect(() => {
     api.datasets.list().then(d => {
       const ds = d.datasets || []
       setDatasets(ds)
       if (ds.length) setDatasetId(ds[0].id)
     }).catch(console.error)
+
+    try {
+      const cached = localStorage.getItem('fedshield_last_run')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed.history?.length) {
+          setHistory(parsed.history)
+          setPrivacy(parsed.privacy || [])
+          setFinalResult(parsed.finalResult || null)
+          setEncActive(true)
+          setStatus('done')
+          setLog('Restored previous session training results.')
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load cached run', e)
+    }
   }, [])
+
+  const applyPreset = preset => {
+    setAlgorithm(preset.algo)
+    setCfg(prev => ({
+      ...prev,
+      rounds: preset.rounds,
+      lr: preset.lr,
+      num_clients: preset.num_clients || prev.num_clients,
+      local_epochs: preset.local_epochs || prev.local_epochs,
+      clip_norm: preset.clip_norm || prev.clip_norm,
+      noise_multiplier: preset.noise_multiplier || prev.noise_multiplier,
+    }))
+  }
 
   const run = async () => {
     setStatus('running'); setError(''); setHistory([]); setPrivacy([])
@@ -59,6 +98,15 @@ export default function Train() {
       setEncActive(true)
       setStatus('done')
       setLog('Done — model encrypted with AES-256-GCM and saved.')
+
+      // Cache to localStorage
+      try {
+        localStorage.setItem('fedshield_last_run', JSON.stringify({
+          history: result.history,
+          privacy: result.privacy,
+          finalResult: { metrics: result.metrics, roc: result.roc }
+        }))
+      } catch (e) {}
     } catch (e) {
       setError(e.message || String(e))
       setStatus('error')
@@ -66,13 +114,34 @@ export default function Train() {
     }
   }
 
-  const algoNeedsClients = ['fedavg', 'fedprox', 'scaffold'].includes(algorithm)
+  const algoNeedsClients = ['fedavg', 'fedprox', 'scaffold', 'krum'].includes(algorithm)
+
+  // Estimated DP-SGD privacy epsilon calculation for live utility simulator
+  const simEpsilon = algorithm === 'dpsgd'
+    ? (Math.sqrt(2 * cfg.rounds * Math.log(1.25 / (cfg.delta || 1e-5))) / (cfg.noise_multiplier || 1.1)).toFixed(2)
+    : null
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Train" sub="Configure an FL algorithm — Python runs it server-side on Vercel." />
+      <PageHeader title="Train & Simulation Lab" sub="Configure an FL algorithm with live privacy-utility estimation and training presets." />
 
-      <div className="grid lg:grid-cols-[340px_1fr] gap-6">
+      {/* Quick Presets Bar */}
+      <div className="panel p-4 flex flex-wrap items-center gap-3 bg-surface-container-low border border-outline-variant">
+        <span className="font-label-caps text-xs text-on-surface-variant mr-1 font-bold">Quick Presets:</span>
+        {PRESETS.map(p => (
+          <button
+            key={p.name}
+            onClick={() => applyPreset(p)}
+            className="px-3 py-1.5 rounded-lg border border-outline-variant hover:border-primary text-xs font-code-sm text-on-surface hover:text-primary bg-surface-container-high transition-all flex items-center gap-1.5"
+            title={p.desc}
+          >
+            <span className="font-bold text-primary">{p.name}</span>
+            <span className="text-[10px] text-on-surface-variant font-mono">({p.algo})</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-[360px_1fr] gap-6">
         <div className="panel p-6 space-y-5 h-fit">
           <div>
             <label className="label block mb-1.5">Dataset</label>
@@ -105,13 +174,51 @@ export default function Train() {
             {algorithm === 'dpsgd' && <NumField label="Noise σ" value={cfg.noise_multiplier} onChange={v => setCfg({ ...cfg, noise_multiplier: v })} step={0.1} min={0.3} max={5} />}
           </div>
 
-          {algoNeedsClients && (
-            <div>
-              <label className="label block mb-1.5">Data distribution</label>
-              <div className="flex gap-2">
-                <button onClick={() => setCfg({ ...cfg, iid: true })}  className={`flex-1 px-3 py-2 rounded-xl border text-sm ${cfg.iid  ? 'border-signal-500/50 bg-signal-500/10' : 'border-ink-600 text-mist-500'}`}>IID</button>
-                <button onClick={() => setCfg({ ...cfg, iid: false })} className={`flex-1 px-3 py-2 rounded-xl border text-sm ${!cfg.iid ? 'border-signal-500/50 bg-signal-500/10' : 'border-ink-600 text-mist-500'}`}>Non-IID</button>
+          {/* Privacy-Utility Live Simulator Card when DP-SGD selected */}
+          {algorithm === 'dpsgd' && (
+            <div className="p-4 rounded-xl border border-encryption-gold/40 bg-encryption-gold/10 space-y-2">
+              <div className="flex justify-between items-center text-xs font-mono">
+                <span className="text-encryption-gold font-bold">DP Privacy Trade-off</span>
+                <span className="px-2 py-0.5 rounded bg-encryption-gold/20 text-encryption-gold font-bold">
+                  Est. ε ≈ {simEpsilon}
+                </span>
               </div>
+              <div className="text-[11px] text-on-surface-variant font-mono space-y-1">
+                <p>Noise σ: <strong className="text-on-surface">{cfg.noise_multiplier}</strong> | Clip: <strong className="text-on-surface">{cfg.clip_norm}</strong></p>
+                <p>Guarantee: {simEpsilon < 3 ? '🔒 Strong Privacy' : simEpsilon < 6 ? '🛡️ Moderate Privacy' : '⚠️ Loose Privacy'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Data Distribution selector & Dirichlet Alpha slider */}
+          {algoNeedsClients && (
+            <div className="space-y-2">
+              <label className="label block mb-1">Data distribution</label>
+              <div className="flex gap-2">
+                <button onClick={() => setCfg({ ...cfg, iid: true })}  className={`flex-1 px-3 py-2 rounded-xl border text-sm ${cfg.iid  ? 'border-signal-500/50 bg-signal-500/10 font-bold' : 'border-ink-600 text-mist-500'}`}>IID</button>
+                <button onClick={() => setCfg({ ...cfg, iid: false })} className={`flex-1 px-3 py-2 rounded-xl border text-sm ${!cfg.iid ? 'border-signal-500/50 bg-signal-500/10 font-bold' : 'border-ink-600 text-mist-500'}`}>Non-IID</button>
+              </div>
+              {!cfg.iid && (
+                <div className="pt-2">
+                  <div className="flex justify-between text-xs font-mono text-mist-400 mb-1">
+                    <span>Dirichlet Heterogeneity (α):</span>
+                    <strong className="text-primary">{cfg.alpha}</strong>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="5.0"
+                    step="0.1"
+                    value={cfg.alpha}
+                    onChange={e => setCfg({ ...cfg, alpha: parseFloat(e.target.value) })}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-mist-500 font-mono">
+                    <span>α=0.1 (Extreme skew)</span>
+                    <span>α=5.0 (Near IID)</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -171,6 +278,15 @@ export default function Train() {
                 <MetricBox label="Recall"    value={finalResult.metrics.recall} />
                 <MetricBox label="F1"        value={finalResult.metrics.f1} />
               </div>
+
+              {/* Extra Convergence Speed Metric callout */}
+              {finalResult.metrics.conv_round && (
+                <div className="mb-4 p-3 rounded-lg border border-primary/30 bg-primary/10 text-xs font-mono flex items-center justify-between">
+                  <span className="text-on-surface">Convergence Speed (80% target):</span>
+                  <span className="text-primary font-bold">{finalResult.metrics.conv_round} Rounds</span>
+                </div>
+              )}
+
               <div className="grid sm:grid-cols-2 gap-6">
                 <div>
                   <div className="label mb-2">Confusion matrix</div>

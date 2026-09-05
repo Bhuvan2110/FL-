@@ -288,10 +288,69 @@ def train_dpsgd(
     return {"weights": weights, "history": history, "privacy": privacy_log}
 
 
+# ── Byzantine-Robust Krum ───────────────────────────────────────────────────
+
+def train_krum(
+    clients: List[Dict],
+    val_X: List[List[float]],
+    val_y: List[int],
+    rounds: int = 30,
+    local_epochs: int = 3,
+    lr: float = 0.4,
+    byzantine_count: int = 1,
+    on_round: Optional[Callable] = None,
+) -> Dict:
+    valid_clients = [c for c in clients if c.get("X") and c["X"][0] and len(c.get("y", [])) == len(c["X"])]
+    if not valid_clients:
+        return {"weights": init_weights(0), "history": []}
+
+    n_f = len(valid_clients[0]["X"][0])
+    global_w = init_weights(n_f)
+    history = []
+
+    eval_X = val_X if (val_X and val_X[0]) else valid_clients[0]["X"]
+    eval_y = val_y if (val_y and len(val_y) == len(eval_X)) else valid_clients[0]["y"]
+
+    for r in range(1, rounds + 1):
+        updated = []
+        for c in valid_clients:
+            local = clone_weights(global_w)
+            for _ in range(local_epochs):
+                local = gradient_step(local, c["X"], c["y"], lr)
+            updated.append(local)
+
+        m = len(updated)
+        f = min(byzantine_count, max(0, (m - 3) // 2))
+        k = max(1, m - f - 2)
+
+        scores = []
+        for i in range(m):
+            dists = []
+            for j in range(m):
+                if i == j: continue
+                w_dist_sq = sum((updated[i]["w"][idx] - updated[j]["w"][idx]) ** 2 for idx in range(n_f))
+                b_dist_sq = (updated[i]["b"] - updated[j]["b"]) ** 2
+                dists.append(w_dist_sq + b_dist_sq)
+            dists.sort()
+            scores.append(sum(dists[:k]))
+
+        best_idx = scores.index(min(scores)) if scores else 0
+        global_w = clone_weights(updated[best_idx])
+
+        loss = cross_entropy_loss(global_w, eval_X, eval_y)
+        acc  = accuracy(global_w, eval_X, eval_y)
+        entry = {"round": r, "loss": round(loss, 6), "accuracy": round(acc, 6)}
+        history.append(entry)
+        if on_round:
+            on_round(entry)
+    return {"weights": global_w, "history": history}
+
+
 ALGORITHMS = {
     "central": {"label": "Central Training",  "color": "#7C879A", "needs_clients": False},
     "fedavg":  {"label": "FedAvg",            "color": "#6C7CFF", "needs_clients": True},
     "fedprox": {"label": "FedProx",           "color": "#4FE3C1", "needs_clients": True},
     "scaffold":{"label": "SCAFFOLD",          "color": "#F2A94E", "needs_clients": True},
+    "krum":    {"label": "FedAvg + Krum",     "color": "#A78BFA", "needs_clients": True},
     "dpsgd":   {"label": "FL + DP-SGD",       "color": "#F0618C", "needs_clients": False},
 }

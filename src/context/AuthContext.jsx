@@ -32,6 +32,28 @@ export function AuthProvider({ children }) {
       .catch(() => { clearToken(); setSession(null) })
   }, [])
 
+  // Inactivity timeout handler (30 minutes)
+  useEffect(() => {
+    if (!session) return
+    let timeoutId
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        signOut()
+      }, 30 * 60 * 1000)
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll']
+    events.forEach(e => window.addEventListener(e, resetTimer))
+    resetTimer()
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      events.forEach(e => window.removeEventListener(e, resetTimer))
+    }
+  }, [session])
+
   const continueAsGuest = () => {
     localStorage.setItem(GUEST_KEY, 'true')
     setIsGuest(true)

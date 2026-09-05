@@ -259,7 +259,58 @@ def stratified_split(rows: List[Dict], label_col: str, seed: int = 7):
     return train, val, test
 
 
-def partition_clients(rows: List[Dict], label_col: str, n_clients: int, iid: bool = True, seed: int = 3):
+def _gamma_sample(shape: float, rng: random.Random) -> float:
+    if shape < 1.0:
+        return _gamma_sample(1.0 + shape, rng) * (rng.random() ** (1.0 / shape))
+    d = shape - 1.0 / 3.0
+    c = 1.0 / math.sqrt(9.0 * d)
+    while True:
+        z = rng.gauss(0, 1)
+        v = 1.0 + c * z
+        if v <= 0:
+            continue
+        v = v * v * v
+        u = rng.random()
+        if u < 1.0 - 0.0331 * z * z * z * z:
+            return d * v
+        if math.log(u) < 0.5 * z * z + d * (1.0 - v + math.log(v)):
+            return d * v
+
+
+def dirichlet_partition(rows: List[Dict], label_col: str, n_clients: int, alpha: float = 0.5, seed: int = 42) -> List[List[Dict]]:
+    rng = random.Random(seed)
+    by_class: Dict[str, List[Dict]] = {}
+    for r in rows:
+        k = str(_encode_label_val(r.get(label_col)))
+        by_class.setdefault(k, []).append(r)
+
+    clients: List[List[Dict]] = [[] for _ in range(n_clients)]
+    for c_label, group in by_class.items():
+        shuffled = list(group)
+        rng.shuffle(shuffled)
+        gammas = [_gamma_sample(max(alpha, 0.01), rng) for _ in range(n_clients)]
+        total = sum(gammas) or 1.0
+        props = [g / total for g in gammas]
+
+        counts = [int(p * len(shuffled)) for p in props]
+        remainder = len(shuffled) - sum(counts)
+        for i in range(remainder):
+            counts[i % n_clients] += 1
+
+        start = 0
+        for cli_idx, cnt in enumerate(counts):
+            clients[cli_idx].extend(shuffled[start:start + cnt])
+            start += cnt
+
+    for c in clients:
+        rng.shuffle(c)
+    return clients
+
+
+def partition_clients(rows: List[Dict], label_col: str, n_clients: int, iid: bool = True, seed: int = 3, alpha: float | None = None):
+    if not iid and alpha is not None and alpha > 0:
+        return dirichlet_partition(rows, label_col, n_clients, alpha=alpha, seed=seed)
+
     rng = random.Random(seed)
     if iid:
         data = list(rows)

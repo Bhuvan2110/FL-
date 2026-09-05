@@ -14,7 +14,7 @@ try:
     )
     from ml.algorithms import (
         train_central, train_fedavg, train_fedprox,
-        train_scaffold, train_dpsgd, ALGORITHMS
+        train_scaffold, train_krum, train_dpsgd, ALGORITHMS
     )
     from ml.metrics import classification_report, roc_curve, platt_scale
 except ImportError:
@@ -26,7 +26,7 @@ except ImportError:
     )
     from api.ml.algorithms import (
         train_central, train_fedavg, train_fedprox,
-        train_scaffold, train_dpsgd, ALGORITHMS
+        train_scaffold, train_krum, train_dpsgd, ALGORITHMS
     )
     from api.ml.metrics import classification_report, roc_curve, platt_scale
 
@@ -81,6 +81,7 @@ def _handler_impl(request, user):
         local_epochs = int(body.get("local_epochs", 3))
         num_clients  = int(body.get("num_clients", 4))
         iid          = bool(body.get("iid", True))
+        alpha        = float(body.get("alpha", 0.5)) if "alpha" in body else None
         mu           = float(body.get("mu", 0.01))
         clip_norm    = float(body.get("clip_norm", 1.0))
         noise_mult   = float(body.get("noise_multiplier", 1.1))
@@ -138,7 +139,7 @@ def _handler_impl(request, user):
                 clip_norm, noise_mult, delta, on_round=on_round
             )
         else:
-            client_rows = partition_clients(train, label_str, num_clients, iid, run_seed)
+            client_rows = partition_clients(train, label_str, num_clients, iid, run_seed, alpha=alpha)
             clients = []
             for cr in client_rows:
                 cx, cy = to_xy(cr, feature_cols, label_str)
@@ -150,6 +151,7 @@ def _handler_impl(request, user):
             if algorithm   == "fedavg":   result = train_fedavg(**args)
             elif algorithm == "fedprox":  result = train_fedprox(**args, mu=mu)
             elif algorithm == "scaffold": result = train_scaffold(**args)
+            elif algorithm == "krum":     result = train_krum(**args)
 
         # Persist rounds
         round_inserts = [
@@ -219,11 +221,21 @@ def _handler_impl(request, user):
         log_audit(user.id, "experiment_complete", algorithm,
                   {"accuracy": report["accuracy"], "experiment_id": exp_id}, token=token)
 
+        # Convergence speed calculation
+        max_acc = max((r["accuracy"] for r in round_buffer), default=0.0)
+        target_acc = 0.8 * max_acc
+        conv_round = None
+        for r in round_buffer:
+            if r["accuracy"] >= target_acc and target_acc > 0:
+                conv_round = r["round"]
+                break
+        area_acc = round(sum(r["accuracy"] for r in round_buffer), 4)
+
         return json_response({
             "experiment_id": exp_id,
             "algorithm":     algorithm,
             "status":        "completed",
-            "metrics":       {**report, "auc": roc["auc"]},
+            "metrics":       {**report, "auc": roc["auc"], "conv_round": conv_round, "area_acc": area_acc},
             "roc":           roc["points"][:20],
             "privacy":       privacy_buffer,
             "history":       round_buffer,

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Papa from 'papaparse'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -285,6 +285,26 @@ export default function Predict() {
     a.click()
   }
 
+  const exportModelPackage = () => {
+    if (!activeDs) return
+    const modelPkg = {
+      dataset_id: activeDs.id,
+      filename: activeDs.filename,
+      label_col: toStrCol(activeDs.label_col),
+      feature_cols: featureCols,
+      exported_at: new Date().toISOString(),
+      platform: "FedShield v3.0",
+      security: "AES-256-GCM Encrypted Pipeline",
+      format_version: "1.0"
+    }
+    const blob = new Blob([JSON.stringify(modelPkg, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `fedshield_model_${activeDs.filename || selectedDsId}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -317,6 +337,15 @@ export default function Predict() {
                   ))}
                 </select>
               </div>
+
+              <button
+                type="button"
+                onClick={exportModelPackage}
+                className="px-3 py-2 rounded-lg border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-mono font-semibold transition flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                Export Model Package (JSON)
+              </button>
 
               {/* Mode Toggle */}
               <div className="flex items-center gap-2 bg-ink-950 p-1.5 rounded-xl border border-line">

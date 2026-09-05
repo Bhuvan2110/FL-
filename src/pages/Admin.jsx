@@ -14,9 +14,34 @@ export function Audit() {
       .finally(() => setLoading(false))
   }, [])
 
+  const exportAuditCsv = () => {
+    if (!logs.length) return
+    const headers = ["id", "action", "resource", "detail", "user_id", "created_at"]
+    const csvRows = [headers.join(",")]
+    logs.forEach(l => {
+      const detailStr = l.detail ? `"${JSON.stringify(l.detail).replace(/"/g, '""')}"` : '""'
+      csvRows.push([l.id, l.action, l.resource || '', detailStr, l.user_id || '', l.created_at].join(","))
+    })
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = `fedshield_audit_log_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   return (
     <div className="space-y-8">
-      <PageHeader title="Audit Log" sub="Immutable insert-only event trail — all security-relevant actions across the platform." />
+      <PageHeader title="Audit Log" sub="Immutable insert-only event trail — all security-relevant actions across the platform.">
+        <button
+          onClick={exportAuditCsv}
+          disabled={logs.length === 0}
+          className="px-3 py-1.5 rounded-lg border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-mono font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-[16px]">download</span>
+          Export Audit Log (CSV)
+        </button>
+      </PageHeader>
 
       {error && <div className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">{error}</div>}
 
