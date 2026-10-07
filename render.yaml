@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fedshield-app
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ENCRYPTION_SECRET
+        generateValue: true

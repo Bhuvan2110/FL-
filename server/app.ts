@@ -1,6 +1,8 @@
 import cors from 'cors'
 import express, { NextFunction, Request, Response } from 'express'
 import 'express-async-errors'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { getConfig } from './config'
 import adminRouter from './routes/admin'
 import authRouter from './routes/auth'
@@ -10,6 +12,9 @@ import experimentsRouter from './routes/experiments'
 import healthRouter from './routes/health'
 import predictRouter from './routes/predict'
 import trainRouter from './routes/train'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 const cfg = getConfig()
@@ -41,6 +46,20 @@ app.use('/api', adminRouter)
 
 app.get('/api', (_req, res) => {
   res.json({ service: 'FedShield API', version: '3.0.0-ts' })
+})
+
+// Serve production frontend build static files
+const distPath = path.resolve(__dirname, '../dist')
+app.use(express.static(distPath))
+
+// SPA Fallback for client side routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next()
+  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+    if (err) {
+      next()
+    }
+  })
 })
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
