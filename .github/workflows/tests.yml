@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Typecheck backend
+        run: npm run typecheck:server
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Backend tests
+        env:
+          SUPABASE_URL: https://ci-placeholder.supabase.co
+          SUPABASE_ANON_KEY: ci-placeholder-key
+          ENCRYPTION_SECRET: ci-placeholder-secret-32-chars!!
+        run: npm run test:server
+
+      - name: Build
+        run: npx vite build

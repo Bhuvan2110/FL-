@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-server/
+.vite/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+.vercel/
