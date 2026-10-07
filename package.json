@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:api": "tsx watch --env-file=.env server/dev-server.ts",
     "build": "tsc --noEmit && vite build",
+    "prestart": "npm run build",
     "start": "tsx server/dev-server.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:server": "tsc -p tsconfig.server.json",
